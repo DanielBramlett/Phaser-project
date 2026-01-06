@@ -8,7 +8,7 @@ const PLAYER_COLOR = 0xc85050;  // player circle
 
 let player;
 let target;
-const speed = 220; // pixels per second
+const speed = 300; // pixels per second
 
 const config = {
   type: Phaser.AUTO,
@@ -25,10 +25,11 @@ new Phaser.Game(config);
 
 function create() {
   // Middle box
-  this.add.rectangle(WIDTH / 2, HEIGHT / 2, 180, 120, BOX_COLOR);
+  rectangle = this.add.rectangle(WIDTH / 2, HEIGHT / 2, 180, 120, BOX_COLOR);
+    
 
   // Player circle (named player)
-  player = this.add.circle(WIDTH / 2, HEIGHT / 2, 15, PLAYER_COLOR);
+  player = this.add.circle(WIDTH / 2, HEIGHT / 2, 50, PLAYER_COLOR);
 
   // Start target at player
   target = new Phaser.Math.Vector2(player.x, player.y);
@@ -42,6 +43,13 @@ function create() {
 
 function update(time, delta) {
   // delta is how many milliseconds since last frame
+  let move = .25 * delta; // 0.25 pixels per millisecond = 250 pixels per second
+  rectangle.x += move
+  if (rectangle.x > WIDTH + rectangle.width / 2) {
+    rectangle.x = -rectangle.width / 2;
+  }
+  
+
   const dt = delta / 1000;
 
   const dx = target.x - player.x;
