@@ -1,40 +1,54 @@
-// --- Game settings ---
+// main.js
+
 const WIDTH = 500;
 const HEIGHT = 350;
 
-const BG_COLOR = 0x50a0c8;      // background
-const BOX_COLOR = 0xf0dc78;     // middle box
-const PLAYER_COLOR = 0xc85050;  // player circle
+const BG_COLOR = 0x50a0c8;       // background
+const OBSTACLE_COLOR = 0xf0dc78; // boxes
+const PLAYER_COLOR = 0xc85050;   // player circle
+const KEY_COLOR = 0x3cdc5a;      // key triangle
 
 let player;
 let target;
-const speed = 300; // pixels per second
+
+const playerRadius = 15;
+const playerSpeed = 250; // pixels per second
+
+let obstacles = [];
+let key;
 
 const config = {
   type: Phaser.AUTO,
   width: WIDTH,
   height: HEIGHT,
   backgroundColor: BG_COLOR,
-  scene: {
-    create,
-    update
-  }
+  scene: { create, update }
 };
 
 new Phaser.Game(config);
 
 function create() {
-  // Middle box
-  rectangle = this.add.rectangle(WIDTH / 2, HEIGHT / 2, 180, 120, BOX_COLOR);
-    
+  // Player (a circle)
+  player = this.add.circle(145, 145, playerRadius, PLAYER_COLOR);
 
-  // Player circle (named player)
-  player = this.add.circle(WIDTH / 2, HEIGHT / 2, 50, PLAYER_COLOR);
-
-  // Start target at player
+  // Click target starts at player
   target = new Phaser.Math.Vector2(player.x, player.y);
 
-  // When you click, set a new target
+  // Key (triangle)
+  key = new Key(this, WIDTH/2, HEIGHT/2, 12, KEY_COLOR);
+  key = new Key(this, WIDTH / 2 + 100, HEIGHT / 2 + 80, 12, KEY_COLOR);
+
+  // Obstacles (4 boxes)
+  obstacles = [
+    new Obstacle(this, WIDTH / 2, HEIGHT / 2, 180, 120, OBSTACLE_COLOR), // middle
+    new Obstacle(this, 105, 80, 90, 40, OBSTACLE_COLOR),                 // extra
+    new Obstacle(this, 410, 285, 100, 50, OBSTACLE_COLOR),               // extra
+    new Obstacle(this, 350, 100, 80, 80, OBSTACLE_COLOR),               // extra
+  ];
+
+  
+
+  // When you click, change the target
   this.input.on("pointerdown", (pointer) => {
     target.x = pointer.x;
     target.y = pointer.y;
@@ -42,30 +56,55 @@ function create() {
 }
 
 function update(time, delta) {
-  // delta is how many milliseconds since last frame
-  let move = .25 * delta; // 0.25 pixels per millisecond = 250 pixels per second
-  rectangle.x += move
-  if (rectangle.x > WIDTH + rectangle.width / 2) {
-    rectangle.x = -rectangle.width / 2;
-  }
-  
-
   const dt = delta / 1000;
 
+  // --- Move player toward target ---
   const dx = target.x - player.x;
   const dy = target.y - player.y;
   const distance = Math.hypot(dx, dy);
 
   if (distance > 1) {
-    const step = speed * dt;
+    const step = playerSpeed * dt;
 
-    // Move toward target without overshooting
+    // direction (normalized)
+    const dirX = dx / distance;
+    const dirY = dy / distance;
+
+    // Try the next position
+    let nextX = player.x;
+    let nextY = player.y;
+
     if (step >= distance) {
-      player.x = target.x;
-      player.y = target.y;
+      nextX = target.x;
+      nextY = target.y;
     } else {
-      player.x += (dx / distance) * step;
-      player.y += (dy / distance) * step;
+      nextX = player.x + dirX * step;
+      nextY = player.y + dirY * step;
     }
+
+    // Ask obstacles if they block the player
+    const blocked = obstacles.some(obs => obs.blocksCircle(nextX, nextY, playerRadius));
+
+    if (!blocked) {
+      player.x = nextX;
+      player.y = nextY;
+    } else {
+      // If blocked, try sliding around:
+      // Try X-only movement, then Y-only movement
+      const slideXBlocked = obstacles.some(obs => obs.blocksCircle(player.x + dirX * step, player.y, playerRadius));
+      const slideYBlocked = obstacles.some(obs => obs.blocksCircle(player.x, player.y + dirY * step, playerRadius));
+
+      if (!slideXBlocked) {
+        player.x = player.x + dirX * step;
+      } else if (!slideYBlocked) {
+        player.y = player.y + dirY * step;
+      }
+      // else: stuck this frame
+    }
+  }
+
+  // --- Pick up the key ---
+  if (!key.collected && key.touchesCircle(player.x, player.y, playerRadius)) {
+    key.collect();
   }
 }
